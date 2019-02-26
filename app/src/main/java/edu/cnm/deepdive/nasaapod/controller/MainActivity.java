@@ -170,6 +170,7 @@ public class MainActivity extends AppCompatActivity {
   private class ApodTask extends AsyncTask<Date, Void, Apod> {
 
     private static final int BUFFER_SIZE = 4096;
+    private static final String IMAGE_MEDIA_TYPE= "image";
 
     @Override
     protected void onPreExecute() {
@@ -179,6 +180,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPostExecute(Apod apod) {
       MainActivity.this.apod = apod;
+      String url = apod.getUrl();
+      if (apod.getMediaType().equals(IMAGE_MEDIA_TYPE)){
+        url = urlFromFilename(filenameFromUrl(url));
+      }
       webView.loadUrl(apod.getUrl());
     }
 
@@ -190,13 +195,23 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected Apod doInBackground(Date... dates) {
-      Apod apod = null;
+      Apod apod = loadFromDatabase(dates[0]);
       try {
-        @SuppressLint("SimpleDateFormat") DateFormat format = new SimpleDateFormat(DATE_FORMAT);
-        Response<Apod> response = service.get(apiKey, format.format(dates[0])).execute();
-        if (response.isSuccessful()) {
-          apod = response.body();
+        if (apod == null) {
+          @SuppressLint("SimpleDateFormat") DateFormat format = new SimpleDateFormat(DATE_FORMAT);
+          Response<Apod> response = service.get(apiKey, format.format(dates[0])).execute();
+          if (response.isSuccessful()) {
+            apod = response.body();
+            ApodApplication.getInstance().getDatabase().getApodDao().inset(apod);
+            calendar.setTime(dates[0]);
+          }
+        } else {
           calendar.setTime(dates[0]);
+        }
+        if (apod != null
+            && apod.getMediaType().equals(IMAGE_MEDIA_TYPE)
+            && !fileExists(filenameFromUrl(apod.getUrl())) ){
+          saveImage(apod);
         }
       } catch (IOException e) {
         Log.e(getClass().getSimpleName(), e.toString());

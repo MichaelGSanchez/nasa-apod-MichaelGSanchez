@@ -11,17 +11,18 @@ public class ApodApplication extends Application {
 
   @Override
   public void onTerminate() {
+    ApodDB.forgetInstance();
     super.onTerminate();
+  }
+
+  @Override
+  public void onCreate() {
+    super.onCreate();
     instance = this;
     Stetho.initializeWithDefaults(this);
     database = ApodDB.getInstance(this);
   }
 
-  @Override
-  public void onCreate() {
-    ApodDB.forgetInstance();
-    super.onCreate();
-  }
 
   public static ApodApplication getInstance(){
     return instance;
