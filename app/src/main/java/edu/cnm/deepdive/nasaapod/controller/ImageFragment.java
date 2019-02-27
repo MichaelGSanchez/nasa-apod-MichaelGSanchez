@@ -5,10 +5,15 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebResourceRequest;
@@ -40,6 +45,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import javax.annotation.Nonnull;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -57,11 +63,16 @@ public class ImageFragment extends Fragment {
   private Apod apod;
   private Calendar calendar;
 
+  @Override
+  public void onCreate(@Nullable Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setHasOptionsMenu(true);
+  }
 
   @Override
   public View onCreateView(LayoutInflater inflater, ViewGroup container,
       Bundle savedInstanceState) {
-    View view =  inflater.inflate(R.layout.fragment_image, container, false);
+    View view = inflater.inflate(R.layout.fragment_image, container, false);
     setupWebView(view);
     setupDatePicker(view);
     setupService();
@@ -80,6 +91,30 @@ public class ImageFragment extends Fragment {
 
     return view;
   }
+
+  @Override
+  public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+    super.onCreateOptionsMenu(menu, inflater);
+    inflater.inflate(R.menu.options, menu);
+  }
+
+  @Override
+  public boolean onOptionsItemSelected(MenuItem item) {
+    if (item.getItemId() == R.id.info) {
+      showInfo();
+      return true;
+    } else {
+      return super.onOptionsItemSelected(item);
+    }
+  }
+
+  @Override
+  public void onSaveInstanceState(@NonNull Bundle outState) {
+    super.onSaveInstanceState(outState);
+    outState.putLong(CALENDAR_KEY, calendar.getTimeInMillis());
+    outState.putSerializable(APOD_KEY, apod);
+  }
+
 
   @SuppressLint("SetJavaScriptEnabled")
   private void setupWebView(View view) {
@@ -147,7 +182,7 @@ public class ImageFragment extends Fragment {
   private class ApodTask extends AsyncTask<Date, Void, Apod> {
 
     private static final int BUFFER_SIZE = 4096;
-    private static final String IMAGE_MEDIA_TYPE= "image";
+    private static final String IMAGE_MEDIA_TYPE = "image";
 
     @Override
     protected void onPreExecute() {
@@ -158,7 +193,7 @@ public class ImageFragment extends Fragment {
     protected void onPostExecute(Apod apod) {
       ImageFragment.this.apod = apod;
       String url = apod.getUrl();
-      if (apod.getMediaType().equals(IMAGE_MEDIA_TYPE)){
+      if (apod.getMediaType().equals(IMAGE_MEDIA_TYPE)) {
         url = urlFromFilename(filenameFromUrl(url));
       }
       webView.loadUrl(apod.getUrl());
@@ -187,7 +222,7 @@ public class ImageFragment extends Fragment {
         }
         if (apod != null
             && apod.getMediaType().equals(IMAGE_MEDIA_TYPE)
-            && !fileExists(filenameFromUrl(apod.getUrl())) ){
+            && !fileExists(filenameFromUrl(apod.getUrl()))) {
           saveImage(apod);
         }
       } catch (IOException e) {
@@ -200,17 +235,17 @@ public class ImageFragment extends Fragment {
       return apod;
     }
 
-    private Apod loadFromDatabase (Date date){
+    private Apod loadFromDatabase(Date date) {
       Date dateOnly = new Date(date.getYear(), date.getMonth(), date.getDay());
       List<Apod> records =
           ApodApplication.getInstance().getDatabase().getApodDao().find(dateOnly);
-      return (records.size() > 0) ? records.get(0): null;
+      return (records.size() > 0) ? records.get(0) : null;
 
     }
 
-    private String filenameFromUrl (String url){
+    private String filenameFromUrl(String url) {
       try {
-        URI uri  = new URL(url).toURI();
+        URI uri = new URL(url).toURI();
         String[] parts = uri.getPath().split("/");
         return parts[parts.length - 1];
       } catch (URISyntaxException | MalformedURLException e) {
@@ -219,8 +254,8 @@ public class ImageFragment extends Fragment {
       }
     }
 
-    private void saveImage (Apod apod) throws IOException {
-      URL url = new URL (apod.getUrl());
+    private void saveImage(Apod apod) throws IOException {
+      URL url = new URL(apod.getUrl());
       String filename = filenameFromUrl(apod.getUrl());
       URLConnection connection = url.openConnection();
       try (
@@ -228,21 +263,21 @@ public class ImageFragment extends Fragment {
           InputStream input = connection.getInputStream();
 
       ) {
-        byte [] buffer = new byte[BUFFER_SIZE];
+        byte[] buffer = new byte[BUFFER_SIZE];
         int bytesRead = 0;
-        while ((bytesRead = input.read(buffer)) > - 1){
+        while ((bytesRead = input.read(buffer)) > -1) {
           output.write(buffer, 0, bytesRead);
 
         }
       }
     }
 
-    private String urlFromFilename (String filename){
+    private String urlFromFilename(String filename) {
       return "file://" + new File(getContext().getFilesDir(), filename).toString();
 
     }
 
-    private  boolean fileExists(String filename){
+    private boolean fileExists(String filename) {
       return new File(getContext().getFilesDir(), filename).exists();
     }
   }
