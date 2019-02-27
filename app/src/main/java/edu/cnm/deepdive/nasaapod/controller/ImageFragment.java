@@ -1,16 +1,16 @@
 package edu.cnm.deepdive.nasaapod.controller;
 
+
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.hardware.camera2.CameraAccessException;
 import android.os.AsyncTask;
-import android.support.design.widget.FloatingActionButton;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.design.widget.FloatingActionButton;
+import android.support.v4.app.Fragment;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -29,7 +29,6 @@ import edu.cnm.deepdive.nasaapod.service.ApodService;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -45,7 +44,7 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class MainActivity extends AppCompatActivity {
+public class ImageFragment extends Fragment {
 
   private static final String DATE_FORMAT = "yyyy-MM-dd";
   private static final String CALENDAR_KEY = "calendar_ms";
@@ -58,12 +57,13 @@ public class MainActivity extends AppCompatActivity {
   private Apod apod;
   private Calendar calendar;
 
+
   @Override
-  protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    setContentView(R.layout.activity_main);
-    setupWebView();
-    setupDatePicker();
+  public View onCreateView(LayoutInflater inflater, ViewGroup container,
+      Bundle savedInstanceState) {
+    View view =  inflater.inflate(R.layout.fragment_image, container, false);
+    setupWebView(view);
+    setupDatePicker(view);
     setupService();
     calendar = Calendar.getInstance();
     if (savedInstanceState != null) {
@@ -77,36 +77,14 @@ public class MainActivity extends AppCompatActivity {
     } else {
       new ApodTask().execute(calendar.getTime());
     }
-  }
 
-  @Override
-  public boolean onCreateOptionsMenu(Menu menu) {
-    super.onCreateOptionsMenu(menu);
-    getMenuInflater().inflate(R.menu.options, menu);
-    return true;
-  }
-
-  @Override
-  public boolean onOptionsItemSelected(MenuItem item) {
-    if (item.getItemId() == R.id.info) {
-      showInfo();
-      return true;
-    } else {
-      return super.onOptionsItemSelected(item);
-    }
-  }
-
-  @Override
-  protected void onSaveInstanceState(Bundle outState) {
-    super.onSaveInstanceState(outState);
-    outState.putLong(CALENDAR_KEY, calendar.getTimeInMillis());
-    outState.putSerializable(APOD_KEY, apod);
+    return view;
   }
 
   @SuppressLint("SetJavaScriptEnabled")
-  private void setupWebView() {
-    webView = findViewById(R.id.web_view);
-    loading = findViewById(R.id.loading);
+  private void setupWebView(View view) {
+    webView = view.findViewById(R.id.web_view);
+    loading = view.findViewById(R.id.loading);
     webView.setWebViewClient(new WebViewClient() {
       @Override
       public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -130,15 +108,15 @@ public class MainActivity extends AppCompatActivity {
 
   private void showInfo() {
     if (apod != null) {
-      Toast.makeText(this, apod.getTitle(), Toast.LENGTH_LONG).show();
+      Toast.makeText(getContext(), apod.getTitle(), Toast.LENGTH_LONG).show();
     }
   }
 
-  private void setupDatePicker() {
-    FloatingActionButton jumpDate = findViewById(R.id.jump_date);
+  private void setupDatePicker(View view) {
+    FloatingActionButton jumpDate = view.findViewById(R.id.jump_date);
     jumpDate.setOnClickListener(new View.OnClickListener() {
       @Override
-      public void onClick(View v) {
+      public void onClick(View v) { //TODO replace with lambda
         DateTimePickerFragment picker = new DateTimePickerFragment();
         picker.setMode(Mode.DATE);
         picker.setCalendar(calendar);
@@ -148,7 +126,7 @@ public class MainActivity extends AppCompatActivity {
             new ApodTask().execute(cal.getTime());
           }
         });
-        picker.show(getSupportFragmentManager(), picker.getClass().getSimpleName());
+        picker.show(getFragmentManager(), picker.getClass().getSimpleName());
       }
     });
   }
@@ -178,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onPostExecute(Apod apod) {
-      MainActivity.this.apod = apod;
+      ImageFragment.this.apod = apod;
       String url = apod.getUrl();
       if (apod.getMediaType().equals(IMAGE_MEDIA_TYPE)){
         url = urlFromFilename(filenameFromUrl(url));
@@ -189,7 +167,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCancelled(Apod apod) {
       loading.setVisibility(View.GONE);
-      Toast.makeText(MainActivity.this, R.string.error_message, Toast.LENGTH_LONG).show();
+      Toast.makeText(getContext(), R.string.error_message, Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -246,7 +224,7 @@ public class MainActivity extends AppCompatActivity {
       String filename = filenameFromUrl(apod.getUrl());
       URLConnection connection = url.openConnection();
       try (
-          OutputStream output = openFileOutput(filename, Context.MODE_PRIVATE);
+          OutputStream output = getContext().openFileOutput(filename, Context.MODE_PRIVATE);
           InputStream input = connection.getInputStream();
 
       ) {
@@ -260,12 +238,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String urlFromFilename (String filename){
-      return "file://" + new File(getFilesDir(), filename).toString();
+      return "file://" + new File(getContext().getFilesDir(), filename).toString();
 
     }
 
     private  boolean fileExists(String filename){
-      return new File(getFilesDir(), filename).exists();
+      return new File(getContext().getFilesDir(), filename).exists();
     }
   }
 
