@@ -9,18 +9,15 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import edu.cnm.deepdive.nasaapod.R;
 import edu.cnm.deepdive.nasaapod.model.Apod;
-import edu.cnm.deepdive.nasaapod.view.HistoryAdapter.Holder;
 import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.List;
 
-public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.Holder>{
+public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.Holder> {
 
   private Context context;
-  private List<Apod>items;
+  private List<Apod> items;
 
-  public HistoryAdapter(Context context,
-      List<Apod> history) {
+  public HistoryAdapter(Context context, List<Apod> items) {
     this.context = context;
     this.items = items;
   }
@@ -45,10 +42,10 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.Holder>{
   public class Holder extends RecyclerView.ViewHolder {
 
     private final DateFormat format = android.text.format.DateFormat.getDateFormat(context);
+
     private Apod apod;
     private TextView dateView;
     private TextView titleView;
-
 
     public Holder(@NonNull View itemView) {
       super(itemView);
@@ -56,13 +53,12 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.Holder>{
       titleView = itemView.findViewById(R.id.title_view);
     }
 
-    private void bind(){
+    private void bind() {
       apod = items.get(getAdapterPosition());
       dateView.setText(format.format(apod.getDate()));
       titleView.setText(apod.getTitle());
     }
 
   }
-
 
 }
