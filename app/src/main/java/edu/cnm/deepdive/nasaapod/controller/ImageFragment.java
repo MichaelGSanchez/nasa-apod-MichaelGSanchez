@@ -1,6 +1,5 @@
 package edu.cnm.deepdive.nasaapod.controller;
 
-
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.AsyncTask;
@@ -28,8 +27,7 @@ import edu.cnm.deepdive.nasaapod.ApodApplication;
 import edu.cnm.deepdive.nasaapod.BuildConfig;
 import edu.cnm.deepdive.nasaapod.R;
 import edu.cnm.deepdive.nasaapod.controller.DateTimePickerFragment.Mode;
-import edu.cnm.deepdive.nasaapod.controller.DateTimePickerFragment.OnChangeListener;
-import edu.cnm.deepdive.nasaapod.model.Apod;
+import edu.cnm.deepdive.nasaapod.model.entity.Apod;
 import edu.cnm.deepdive.nasaapod.service.ApodService;
 import java.io.File;
 import java.io.IOException;
@@ -45,7 +43,6 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import javax.annotation.Nonnull;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -55,6 +52,7 @@ public class ImageFragment extends Fragment {
   private static final String DATE_FORMAT = "yyyy-MM-dd";
   private static final String CALENDAR_KEY = "calendar_ms";
   private static final String APOD_KEY = "apod";
+  private static final String IMAGE_MEDIA_TYPE = "image";
 
   private WebView webView;
   private String apiKey;
@@ -62,6 +60,8 @@ public class ImageFragment extends Fragment {
   private ApodService service;
   private Apod apod;
   private Calendar calendar;
+
+  // TODO Define method to allow programmatic change of image.
 
   @Override
   public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -79,17 +79,15 @@ public class ImageFragment extends Fragment {
     setupService();
     calendar = Calendar.getInstance();
     if (savedInstanceState != null) {
-      long savedMillis = savedInstanceState.getLong(CALENDAR_KEY, calendar.getTimeInMillis());
-      calendar.setTimeInMillis(savedMillis);
       apod = (Apod) savedInstanceState.getSerializable(APOD_KEY);
     }
     if (apod != null) {
-      loading.setVisibility(View.VISIBLE);//TODO Only if visiable
+      setApod(apod);
+      loading.setVisibility(View.VISIBLE); // TODO Only if visible
       webView.loadUrl(apod.getUrl());
     } else {
       new ApodTask().execute(calendar.getTime());
     }
-
     return view;
   }
 
@@ -116,6 +114,19 @@ public class ImageFragment extends Fragment {
     outState.putSerializable(APOD_KEY, apod);
   }
 
+  public void setApod(Apod apod) {
+    this.apod = apod;
+    calendar.setTime(apod.getDate());
+    if (isVisible()) {
+      loading.setVisibility(View.VISIBLE);
+
+    }
+    String url = apod.getUrl();
+    if (apod.getMediaType().equals(IMAGE_MEDIA_TYPE)) {
+      url = urlFromFilename(filenameFromUrl(url));
+    }
+    webView.loadUrl(url);
+  }
 
   @SuppressLint("SetJavaScriptEnabled")
   private void setupWebView(View view) {
@@ -161,7 +172,6 @@ public class ImageFragment extends Fragment {
     });
   }
 
-
   private void setupService() {
     Gson gson = new GsonBuilder()
         .excludeFieldsWithoutExposeAnnotation()
@@ -175,6 +185,23 @@ public class ImageFragment extends Fragment {
     apiKey = BuildConfig.API_KEY;
   }
 
+  private String filenameFromUrl(String url) {
+    try {
+      URI uri  = new URL(url).toURI();
+      String[] parts = uri.getPath().split("/");
+      return parts[parts.length - 1];
+    } catch (URISyntaxException | MalformedURLException e) {
+      Log.e(getClass().getSimpleName(), e.toString());
+      return null;
+    }
+  }
+
+
+  private String urlFromFilename(String filename) {
+    return "file://" + new File(getContext().getFilesDir(), filename).toString();
+  }
+
+
   private class ApodTask extends AsyncTask<Date, Void, Apod> {
 
     private static final int BUFFER_SIZE = 4096;
@@ -187,12 +214,7 @@ public class ImageFragment extends Fragment {
 
     @Override
     protected void onPostExecute(Apod apod) {
-      ImageFragment.this.apod = apod;
-      String url = apod.getUrl();
-      if (apod.getMediaType().equals(IMAGE_MEDIA_TYPE)) {
-        url = urlFromFilename(filenameFromUrl(url));
-      }
-      webView.loadUrl(apod.getUrl());
+      setApod(apod);
     }
 
     @Override
@@ -210,11 +232,8 @@ public class ImageFragment extends Fragment {
           Response<Apod> response = service.get(apiKey, format.format(dates[0])).execute();
           if (response.isSuccessful()) {
             apod = response.body();
-            ApodApplication.getInstance().getDatabase().getApodDao().inset(apod);
-            calendar.setTime(dates[0]);
+            ApodApplication.getInstance().getDatabase().getApodDao().insert(apod);
           }
-        } else {
-          calendar.setTime(dates[0]);
         }
         if (apod != null
             && apod.getMediaType().equals(IMAGE_MEDIA_TYPE)
@@ -232,23 +251,12 @@ public class ImageFragment extends Fragment {
     }
 
     private Apod loadFromDatabase(Date date) {
-      Date dateOnly = new Date(date.getYear(), date.getMonth(), date.getDay());
+      Date dateOnly = new Date(date.getYear(), date.getMonth(), date.getDate());
       List<Apod> records =
           ApodApplication.getInstance().getDatabase().getApodDao().find(dateOnly);
       return (records.size() > 0) ? records.get(0) : null;
-
     }
 
-    private String filenameFromUrl(String url) {
-      try {
-        URI uri = new URL(url).toURI();
-        String[] parts = uri.getPath().split("/");
-        return parts[parts.length - 1];
-      } catch (URISyntaxException | MalformedURLException e) {
-        Log.e(getClass().getSimpleName(), e.toString());
-        return null;
-      }
-    }
 
     private void saveImage(Apod apod) throws IOException {
       URL url = new URL(apod.getUrl());
@@ -257,25 +265,20 @@ public class ImageFragment extends Fragment {
       try (
           OutputStream output = getContext().openFileOutput(filename, Context.MODE_PRIVATE);
           InputStream input = connection.getInputStream();
-
       ) {
         byte[] buffer = new byte[BUFFER_SIZE];
         int bytesRead = 0;
         while ((bytesRead = input.read(buffer)) > -1) {
           output.write(buffer, 0, bytesRead);
-
         }
       }
     }
 
-    private String urlFromFilename(String filename) {
-      return "file://" + new File(getContext().getFilesDir(), filename).toString();
-
-    }
 
     private boolean fileExists(String filename) {
       return new File(getContext().getFilesDir(), filename).exists();
     }
+
   }
 
 }

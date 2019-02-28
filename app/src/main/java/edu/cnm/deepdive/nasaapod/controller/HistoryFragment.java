@@ -10,7 +10,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import edu.cnm.deepdive.nasaapod.ApodApplication;
 import edu.cnm.deepdive.nasaapod.R;
-import edu.cnm.deepdive.nasaapod.model.Apod;
+import edu.cnm.deepdive.nasaapod.model.entity.Apod;
 import edu.cnm.deepdive.nasaapod.view.HistoryAdapter;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +20,7 @@ public class HistoryFragment extends Fragment {
   private RecyclerView historyView;
   private List<Apod> history;
   private HistoryAdapter adapter;
+  private ImageFragment imageFragment;
 
   @Override
   public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -33,7 +34,7 @@ public class HistoryFragment extends Fragment {
     View view = inflater.inflate(R.layout.fragment_history, container, false);//FIXME
     historyView = view.findViewById(R.id.history_view);
     history = new ArrayList<>();
-    adapter = new HistoryAdapter(getContext(), history);
+    adapter = new HistoryAdapter(this, history);
     historyView.setAdapter(adapter);
     new ApodQuery().execute();
     return view;
@@ -47,6 +48,13 @@ public class HistoryFragment extends Fragment {
     }
   }
 
+  public void setImageFragment(ImageFragment fragment){
+    imageFragment = fragment;
+  }
+
+  public ImageFragment getImageFragment () {
+    return imageFragment;
+  }
   private class ApodQuery extends AsyncTask<Void, Void, List<Apod>> {
 
     @Override
